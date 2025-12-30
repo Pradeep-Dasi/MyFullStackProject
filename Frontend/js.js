@@ -1,33 +1,23 @@
-// GET button
-document.getElementById('fetch-btn').addEventListener('click', () => {
-  fetch('http://localhost:3000/Person')
-    .then(response => response.json())
-    .then(data => {
-      document.getElementById('result').innerHTML = JSON.stringify(data, null, 2);
-    })
-    .catch(err => console.error('Error fetching persons:', err));
-});
+async function createPaste() {
+            const text = document.getElementById('pasteText').value;
+            const expireMinutes = document.getElementById('expireMinutes').value;
+            const maxViews = document.getElementById('maxViews').value;
 
-// POST form
-document.getElementById('person-form').addEventListener('submit', (e) => {
-  e.preventDefault();
+            const response = await fetch('http://localhost:3000/paste', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    text: text,
+                    expireAfterMinutes: expireMinutes,
+                    maxViews: maxViews
+                })
+            });
 
-  const Name = document.getElementById('name').value;
-  const Email = document.getElementById('email').value;
-  const Occupation = document.getElementById('occupation').value;
-
-  fetch('http://localhost:3000/Person', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ Name, Email, Occupation })
-  })
-  .then(response => response.json())
-  .then(data => {
-    document.getElementById('post-result').innerText = 'Person added successfully! ID: ' + data.insertId;
-    document.getElementById('person-form').reset();
-  })
-  .catch(err => {
-    document.getElementById('post-result').innerText = 'Error adding person.';
-    console.error(err);
-  });
-});
+            const data = await response.json();
+            const pasteLink = document.getElementById('pasteLink');
+            pasteLink.href = data.link;
+            pasteLink.textContent = data.link;
+            document.getElementById('linkSection').style.display = 'block';
+        }

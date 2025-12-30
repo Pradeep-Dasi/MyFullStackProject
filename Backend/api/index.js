@@ -1,66 +1,62 @@
-// const http = require('node:http');
-
-// const hostname = '127.0.0.1';
-// const port = 3000;
-
-// const server = http.createServer((req, res) => {
-//   res.statusCode = 200;
-//   res.setHeader('Content-Type', 'text/plain');
-//   res.end('Hello, World!\n');
-// });
-
-// server.listen(port, hostname, () => {
-//   console.log(`Server running at http://${hostname}:${port}/`);
-// });
-
-
-
-// server.js
-const express = require("express");
-const mysql = require("mysql2");
-const cors = require("cors");
+const express = require('express');
+const mongoose = require('mongoose');
+const shortid = require('shortid');
 
 const app = express();
-app.use(express.json());
-app.use(cors());
+const port = 3000;
 
-// Create connection pool
-const pool = mysql.createPool({
-  host: "localhost",
-  user: "root",
-  password: "12345",
-  database: "Person",
-  waitForConnections: true,
-  connectionLimit: 10,
+// Connect to MongoDB (replace with your database URL)
+mongoose.connect('mongodb://localhost:27017/pastebin', { useNewUrlParser: true, useUnifiedTopology: true });
+
+const pasteSchema = new mongoose.Schema({
+  text: String,
+  createdAt: { type: Date, default: Date.now },
+  expiresAt: Date,
+  views: { type: Number, default: 0 },
+  maxViews: Number
 });
 
-// Test route
-app.get("/", (req, res) => {
-  res.send("Express and MySQL2 are working!");
-});
-
-// Get users example
-app.get("/Person", (req, res) => {
-  pool.query("SELECT * FROM Person", (err, results) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(results);
-  });
-});
+const Paste = mongoose.model('Paste', pasteSchema);
 
 app.use(express.json());
-app.post("/Person", (req, res) => {
 
-  const { Name, Email, Occupation } = req.body;
+// Route to create a new paste
+app.post('/paste', async (req, res) => {
+  const { text, expireAfterMinutes, maxViews } = req.body;
 
-  const sql = "INSERT INTO PERSON(Name, Email, Occupation) VALUES (?, ?, ?)";
-  pool.query(sql, [Name, Email, Occupation], (err, results) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({message: "Person added successfully!!"},results);
+  const paste = new Paste({
+    text: text,
+    expiresAt: expireAfterMinutes ? new Date(Date.now() + expireAfterMinutes * 60000) : null,
+    maxViews: maxViews || 0
   });
+
+  await paste.save();
+
+  res.send({ link: `http://localhost:${port}/paste/${paste.id}` });
+});
+
+// Route to view a paste
+app.get('/paste/:id', async (req, res) => {
+  const paste = await Paste.findById(req.params.id);
+
+  if (!paste) return res.status(404).send('Paste not found');
+
+  // Check if paste expired or reached max views
+  if (paste.expiresAt && new Date() > paste.expiresAt) {
+    return res.status(410).send('This paste has expired');
+  }
+
+  if (paste.maxViews && paste.views >= paste.maxViews) {
+    return res.status(410).send('This paste has reached its maximum views');
+  }
+
+  paste.views += 1;
+  await paste.save();
+
+  res.send(paste.text);
 });
 
 // Start server
-app.listen(3000, () => {
-  console.log("Server started on http://localhost:3000");
+app.listen(port, () => {
+  console.log(`Server running at http://localhost:${port}`);
 });
-

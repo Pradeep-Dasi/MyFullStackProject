@@ -2,29 +2,22 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Will</title>
+    <title>Pastebin-like App</title>
     <link rel="stylesheet" href="../CSS/css.css">
 </head>
 <body>
-    <div class="container">
-        <h1>Look over the record and then please enter your name!!</h1>
-    </div>
-    <p class="para_top">Below are the options for manupulation, So you can "Read", "Create", "Update" and "Delete"</p>
+    <h1>Pastebin-like App</h1>
     
-    <div class="btns">
-        <button id="fetch-btn" class="button-color1">GET</button>
-        <button class="button-color2">POST</button>
+    <textarea id="pasteText" placeholder="Paste your text here"></textarea><br>
+    <input type="number" id="expireMinutes" placeholder="Expiration (minutes)">
+    <input type="number" id="maxViews" placeholder="Max Views (0 for unlimited)"><br>
+    <button onclick="createPaste()">Create Paste</button>
+
+    <div id="linkSection" style="display: none;">
+        <p>Share your paste with this link:</p>
+        <a id="pasteLink" target="_blank"></a>
     </div>
-
-    <!-- <button id="fetch-btn">Get Persons</button> -->
-    <div id="result"></div>
-
-
-    <div id="person-list"></div>
-  
 </body>
-<br>
 <script src="../JavaScript/js.js"></script>
 </html>
