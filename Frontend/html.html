@@ -1,23 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pastebin-like App</title>
-    <link rel="stylesheet" href="../CSS/css.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pastebin Clone</title>
+  <style>
+    body { font-family: Arial; padding: 20px; max-width: 600px; margin: auto; }
+    textarea, input { width: 100%; margin-bottom: 10px; padding: 5px; }
+    button { padding: 5px 10px; margin-bottom: 10px; }
+    .paste-box { white-space: pre-wrap; border: 1px solid #ccc; padding: 10px; margin-top: 10px; }
+    a { word-break: break-all; }
+  </style>
 </head>
 <body>
-    <h1>Pastebin-like App</h1>
-    
-    <textarea id="pasteText" placeholder="Paste your text here"></textarea><br>
-    <input type="number" id="expireMinutes" placeholder="Expiration (minutes)">
-    <input type="number" id="maxViews" placeholder="Max Views (0 for unlimited)"><br>
-    <button onclick="createPaste()">Create Paste</button>
+  <h1>Pastebin Clone</h1>
 
-    <div id="linkSection" style="display: none;">
-        <p>Share your paste with this link:</p>
-        <a id="pasteLink" target="_blank"></a>
-    </div>
+  <h3>Create a Paste</h3>
+  <textarea id="text" rows="5" placeholder="Enter your text here"></textarea>
+  <input type="number" id="expireMinutes" placeholder="Expire after minutes (optional)">
+  <input type="number" id="maxViews" placeholder="Max views (optional)">
+  <button onclick="createPaste()">Create Paste</button>
+
+  <div id="pasteLink" class="paste-box"></div>
+
+  <hr>
+
+  <h3>View a Paste</h3>
+  <input type="text" id="pasteId" placeholder="Enter Paste ID">
+  <button onclick="viewPaste()">View Paste</button>
+
+  <div id="pasteContent" class="paste-box"></div>
+
+  <script>
+    const API_URL = "/api"; // replace with full URL if frontend is separate
+
+    async function createPaste() {
+      const text = document.getElementById("text").value;
+      const expireMinutes = document.getElementById("expireMinutes").value;
+      const maxViews = document.getElementById("maxViews").value;
+
+      if (!text) return alert("Please enter some text");
+
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text,
+          expireAfterMinutes: expireMinutes ? parseInt(expireMinutes) : 0,
+          maxViews: maxViews ? parseInt(maxViews) : 0
+        })
+      });
+
+      const data = await res.json();
+      document.getElementById("pasteLink").innerHTML = 
+        `<strong>Paste Link:</strong> <a href="${data.link}" target="_blank">${data.link}</a>`;
+    }
+
+    async function viewPaste() {
+      const id = document.getElementById("pasteId").value;
+      if (!id) return alert("Please enter Paste ID");
+
+      const res = await fetch(`${API_URL}?id=${id}`);
+      const contentDiv = document.getElementById("pasteContent");
+
+      if (res.status === 200) {
+        const text = await res.text();
+        contentDiv.textContent = text;
+      } else {
+        const err = await res.text();
+        contentDiv.textContent = err;
+      }
+    }
+  </script>
 </body>
-<script src="../JavaScript/js.js"></script>
 </html>
