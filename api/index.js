@@ -1,62 +1,66 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const shortid = require('shortid');
+// api/index.js
+import mongoose from "mongoose";
 
-const app = express();
-const port = 3000;
+const MONGODB_URI = process.env.MONGODB_URI;
 
-// Connect to MongoDB (replace with your database URL)
-mongoose.connect('mongodb://localhost:27017/pastebin', { useNewUrlParser: true, useUnifiedTopology: true });
+let conn = null;
 
+// Connect to MongoDB
+async function connectToDB() {
+  if (conn) return conn;
+  conn = await mongoose.connect(MONGODB_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  });
+  return conn;
+}
+
+// Define schema
 const pasteSchema = new mongoose.Schema({
   text: String,
   createdAt: { type: Date, default: Date.now },
   expiresAt: Date,
   views: { type: Number, default: 0 },
-  maxViews: Number
+  maxViews: Number,
 });
 
-const Paste = mongoose.model('Paste', pasteSchema);
+const Paste = mongoose.models.Paste || mongoose.model("Paste", pasteSchema);
 
-app.use(express.json());
+// Serverless function handler
+export default async function handler(req, res) {
+  await connectToDB();
 
-// Route to create a new paste
-app.post('/paste', async (req, res) => {
-  const { text, expireAfterMinutes, maxViews } = req.body;
+  if (req.method === "POST") {
+    const { text, expireAfterMinutes, maxViews } = req.body;
 
-  const paste = new Paste({
-    text: text,
-    expiresAt: expireAfterMinutes ? new Date(Date.now() + expireAfterMinutes * 60000) : null,
-    maxViews: maxViews || 0
-  });
+    const paste = new Paste({
+      text,
+      expiresAt: expireAfterMinutes
+        ? new Date(Date.now() + expireAfterMinutes * 60000)
+        : null,
+      maxViews: maxViews || 0,
+    });
 
-  await paste.save();
+    await paste.save();
 
-  res.send({ link: `http://localhost:${port}/paste/${paste.id}` });
-});
+    res.status(200).json({ link: `/api/paste?id=${paste._id}` });
+  } else if (req.method === "GET") {
+    const { id } = req.query;
 
-// Route to view a paste
-app.get('/paste/:id', async (req, res) => {
-  const paste = await Paste.findById(req.params.id);
+    const paste = await Paste.findById(id);
+    if (!paste) return res.status(404).send("Paste not found");
 
-  if (!paste) return res.status(404).send('Paste not found');
+    if (paste.expiresAt && new Date() > paste.expiresAt)
+      return res.status(410).send("This paste has expired");
 
-  // Check if paste expired or reached max views
-  if (paste.expiresAt && new Date() > paste.expiresAt) {
-    return res.status(410).send('This paste has expired');
+    if (paste.maxViews && paste.views >= paste.maxViews)
+      return res.status(410).send("This paste has reached its maximum views");
+
+    paste.views += 1;
+    await paste.save();
+
+    res.status(200).send(paste.text);
+  } else {
+    res.status(405).send("Method not allowed");
   }
-
-  if (paste.maxViews && paste.views >= paste.maxViews) {
-    return res.status(410).send('This paste has reached its maximum views');
-  }
-
-  paste.views += 1;
-  await paste.save();
-
-  res.send(paste.text);
-});
-
-// Start server
-app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
-});
+}
