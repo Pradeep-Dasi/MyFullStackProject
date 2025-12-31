@@ -2,6 +2,7 @@
   "name": "fullstackproject",
   "version": "1.0.0",
   "description": "",
+  "type": "module",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -17,9 +18,12 @@
     "url": "https://github.com/Pradeep-Dasi/MyFullStackProject/issues"
   },
   "homepage": "https://github.com/Pradeep-Dasi/MyFullStackProject#readme",
+  "engines": {
+    "node": "18.x"
+  },
   "dependencies": {
     "cors": "^2.8.5",
-    "express": "^5.2.1",
+    "express": "^4.19.2",
     "mongoose": "^9.1.1",
     "uuid": "^13.0.0"
   }
