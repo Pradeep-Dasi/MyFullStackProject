@@ -22,6 +22,10 @@ function getNow(req) {
   return new Date();
 }
 
+app.get("/", (req, res) => {
+  res.send("Backend is running");
+});
+
 /**
  * Health check
  */
