@@ -2,8 +2,10 @@ import express from "express";
 import bodyParser from "body-parser";
 import { v4 as uuidv4 } from "uuid";
 import cors from "cors";
+import crypto from "crypto";
 
 
+crypto.randomUUID();
 const app = express();
 app.use(bodyParser.json());
 app.use(cors());

@@ -14,7 +14,7 @@ async function createPaste() {
   if (views) body.max_views = Number(views);
 
   try {
-    const res = await fetch("/api/pastes", {
+    const res = await fetch("http://localhost:3000/api/pastes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body)
