@@ -19,6 +19,7 @@
   "homepage": "https://github.com/Pradeep-Dasi/MyFullStackProject#readme",
   "dependencies": {
     "express": "^5.2.1",
-    "mongoose": "^9.1.1"
+    "mongoose": "^9.1.1",
+    "uuid": "^13.0.0"
   }
 }

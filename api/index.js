@@ -1,79 +1,131 @@
-// Backend/api/index.js
-import mongoose from "mongoose";
+import express from "express";
+import bodyParser from "body-parser";
+import { v4 as uuidv4 } from "uuid";
 
-// 1️⃣ MongoDB connection helper
-const MONGODB_URI = process.env.MONGODB_URI;
+const app = express();
+app.use(bodyParser.json());
 
-let conn = null;
-async function connectToDB() {
-  if (conn) return conn;
-  conn = await mongoose.connect(MONGODB_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  });
-  return conn;
+// In-memory store ONLY for logic testing
+// ⚠️ Use DB in production
+const pastes = new Map();
+
+/**
+ * Utility: get current time (supports TEST_MODE)
+ */
+function getNow(req) {
+  if (process.env.TEST_MODE === "1") {
+    const header = req.headers["x-test-now-ms"];
+    if (header) {
+      return new Date(Number(header));
+    }
+  }
+  return new Date();
 }
 
-// 2️⃣ Define Paste schema and model
-const pasteSchema = new mongoose.Schema({
-  text: String,
-  createdAt: { type: Date, default: Date.now },
-  expiresAt: Date,
-  views: { type: Number, default: 0 },
-  maxViews: Number,
+/**
+ * Health check
+ */
+app.get("/api/healthz", (req, res) => {
+  res.status(200).json({ ok: true });
 });
 
-const Paste = mongoose.models.Paste || mongoose.model("Paste", pasteSchema);
+/**
+ * Create paste
+ */
+app.post("/api/pastes", (req, res) => {
+  const { content, ttl_seconds, max_views } = req.body;
 
-// 3️⃣ Serverless function handler
-export default async function handler(req, res) {
-  try {
-    await connectToDB(); // connect to MongoDB
-
-    if (req.method === "POST") {
-      // Create a new paste
-      const { text, expireAfterMinutes, maxViews } = req.body;
-
-      const paste = new Paste({
-        text,
-        expiresAt: expireAfterMinutes
-          ? new Date(Date.now() + expireAfterMinutes * 60000)
-          : null,
-        maxViews: maxViews || 0,
-      });
-
-      await paste.save();
-
-      // Return link for viewing the paste
-      res.status(200).json({ link: `/api?id=${paste._id}` });
-    } else if (req.method === "GET") {
-      // View a paste
-      const { id } = req.query;
-
-      if (!id) return res.status(400).send("Paste ID is required");
-
-      const paste = await Paste.findById(id);
-      if (!paste) return res.status(404).send("Paste not found");
-
-      // Check if expired
-      if (paste.expiresAt && new Date() > paste.expiresAt) {
-        return res.status(410).send("This paste has expired");
-      }
-
-      // Check max views
-      if (paste.maxViews && paste.views >= paste.maxViews) {
-        return res.status(410).send("This paste has reached its maximum views");
-      }
-
-      paste.views += 1;
-      await paste.save();
-
-      res.status(200).send(paste.text);
-    } else {
-      res.status(405).send("Method not allowed");
-    }
-  } catch (error) {
-    console.error("Serverless function error:", error);
-    res.status(500).send("Internal Server Error");
+  if (!content || typeof content !== "string" || content.trim() === "") {
+    return res.status(400).json({ error: "Invalid content" });
   }
-}
+
+  if (ttl_seconds !== undefined && (!Number.isInteger(ttl_seconds) || ttl_seconds < 1)) {
+    return res.status(400).json({ error: "Invalid ttl_seconds" });
+  }
+
+  if (max_views !== undefined && (!Number.isInteger(max_views) || max_views < 1)) {
+    return res.status(400).json({ error: "Invalid max_views" });
+  }
+
+  const id = uuidv4();
+  const now = new Date();
+
+  pastes.set(id, {
+    id,
+    content,
+    createdAt: now,
+    expiresAt: ttl_seconds ? new Date(now.getTime() + ttl_seconds * 1000) : null,
+    maxViews: max_views ?? null,
+    viewCount: 0
+  });
+
+  res.status(201).json({
+    id,
+    url: `${req.protocol}://${req.get("host")}/p/${id}`
+  });
+});
+
+/**
+ * Fetch paste (API)
+ */
+app.get("/api/pastes/:id", (req, res) => {
+  const paste = pastes.get(req.params.id);
+  if (!paste) return res.status(404).json({ error: "Not found" });
+
+  const now = getNow(req);
+
+  if (paste.expiresAt && now > paste.expiresAt) {
+    return res.status(404).json({ error: "Expired" });
+  }
+
+  if (paste.maxViews !== null && paste.viewCount >= paste.maxViews) {
+    return res.status(404).json({ error: "View limit exceeded" });
+  }
+
+  paste.viewCount += 1;
+
+  res.json({
+    content: paste.content,
+    remaining_views:
+      paste.maxViews === null ? null : Math.max(paste.maxViews - paste.viewCount, 0),
+    expires_at: paste.expiresAt ? paste.expiresAt.toISOString() : null
+  });
+});
+
+/**
+ * View paste (HTML)
+ */
+app.get("/p/:id", (req, res) => {
+  const paste = pastes.get(req.params.id);
+  if (!paste) return res.status(404).send("Not Found");
+
+  const now = getNow(req);
+
+  if (paste.expiresAt && now > paste.expiresAt) {
+    return res.status(404).send("Expired");
+  }
+
+  if (paste.maxViews !== null && paste.viewCount >= paste.maxViews) {
+    return res.status(404).send("View limit exceeded");
+  }
+
+  paste.viewCount += 1;
+
+  // Safe rendering (no script execution)
+  const escaped = paste.content
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+  res.send(`
+    <html>
+      <body>
+        <pre>${escaped}</pre>
+      </body>
+    </html>
+  `);
+});
+
+app.listen(3000, () => {
+  console.log("Server running on http://localhost:3000");
+});

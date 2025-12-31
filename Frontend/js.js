@@ -1,39 +1,28 @@
-const API_URL = "/api"; // if frontend is separate, replace with full URL
+async function createPaste() {
+  const content = document.getElementById("content").value;
+  const ttl = document.getElementById("ttl").value;
+  const views = document.getElementById("views").value;
 
-    async function createPaste() {
-      const text = document.getElementById("text").value;
-      const expireMinutes = document.getElementById("expireMinutes").value;
-      const maxViews = document.getElementById("maxViews").value;
+  const body = {
+    content
+  };
 
-      if (!text) return alert("Please enter some text");
+  if (ttl) body.ttl_seconds = Number(ttl);
+  if (views) body.max_views = Number(views);
 
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text,
-          expireAfterMinutes: expireMinutes ? parseInt(expireMinutes) : 0,
-          maxViews: maxViews ? parseInt(maxViews) : 0
-        })
-      });
+  const res = await fetch("/api/pastes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
 
-      const data = await res.json();
-      document.getElementById("pasteLink").innerHTML = 
-        `<strong>Paste Link:</strong> <a href="${data.link}" target="_blank">${data.link}</a>`;
-    }
+  const data = await res.json();
 
-    async function viewPaste() {
-      const id = document.getElementById("pasteId").value;
-      if (!id) return alert("Please enter Paste ID");
+  if (!res.ok) {
+    document.getElementById("result").innerText = data.error;
+    return;
+  }
 
-      const res = await fetch(`${API_URL}?id=${id}`);
-      const contentDiv = document.getElementById("pasteContent");
-
-      if (res.status === 200) {
-        const text = await res.text();
-        contentDiv.textContent = text;
-      } else {
-        const err = await res.text();
-        contentDiv.textContent = err;
-      }
-    }
+  document.getElementById("result").innerHTML =
+    `Paste created: <a href="${data.url}" target="_blank">${data.url}</a>`;
+}
