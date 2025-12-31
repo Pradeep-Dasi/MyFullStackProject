@@ -1,12 +1,16 @@
 import express from "express";
 import bodyParser from "body-parser";
 import { v4 as uuidv4 } from "uuid";
+import cors from "cors";
+
 
 const app = express();
 app.use(bodyParser.json());
+app.use(cors());
+app.use(express.json());
 
 // In-memory store ONLY for logic testing
-// ⚠️ Use DB in production
+
 const pastes = new Map();
 
 /**
