@@ -33,3 +33,4 @@ async function createPaste() {
     alert("Cannot connect to backend");
   }
 }
+
